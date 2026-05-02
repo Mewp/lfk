@@ -15,15 +15,20 @@ const maxHistoryEntries = 500
 // fields are identical between the two, only the action on a match differs
 // (jump vs. narrow), so users want to recall the same query regardless of
 // which mode they re-enter. The `:` command bar stays separate because its
-// inputs are kubectl-shaped commands, not resource-name queries.
+// inputs are kubectl-shaped commands, not resource-name queries. The log
+// viewer's `/` search is also kept separate: it matches against raw log
+// lines (substring/regex over arbitrary text), not resource names, so
+// pooling it with the explorer query history would surface irrelevant
+// entries on Up/Down in either context.
 const (
-	historyFileCommand = "history"
-	historyFileQuery   = "query-history"
+	historyFileCommand   = "history"
+	historyFileQuery     = "query-history"
+	historyFileLogSearch = "log-search-history"
 )
 
 // commandHistory manages a persistent ring of recent text-input entries.
-// Used by the command bar and (per filename) the explorer search and
-// filter inputs.
+// Used by the command bar, the explorer search and filter inputs, and
+// the log viewer's `/` search (per filename).
 type commandHistory struct {
 	entries  []string
 	cursor   int    // -1 means "not browsing history" (typing new command)
@@ -117,12 +122,16 @@ func (h *commandHistory) save() {
 	if path == "" {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 0700/0600: history files persist raw search/filter/log-search
+	// queries that may contain sensitive fragments (tokens, emails),
+	// so restrict them to the owning user — same convention as
+	// ~/.bash_history etc.
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		logger.Warn("Failed to create history directory", "error", err, "path", path)
 		return
 	}
 	content := strings.Join(h.entries, "\n") + "\n"
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		logger.Warn("Failed to write history file", "error", err, "path", path)
 	}
 }
@@ -172,4 +181,17 @@ func (h *commandHistory) reset() {
 	}
 	h.cursor = -1
 	h.draft = ""
+}
+
+// leaveBrowse exits history browsing while preserving the pre-recall
+// draft. Use this when the user edits a recalled entry (typing,
+// backspace, ctrl+w, ctrl+u): the edited text becomes the new content,
+// but a subsequent Down past the newest entry should restore the
+// original draft the user had before pressing Up — not "" (which is
+// what reset() would leave behind). Nil receiver no-op.
+func (h *commandHistory) leaveBrowse() {
+	if h == nil {
+		return
+	}
+	h.cursor = -1
 }

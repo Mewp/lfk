@@ -125,6 +125,27 @@ func TestCommandHistoryReset(t *testing.T) {
 	assert.Empty(t, h.draft)
 }
 
+// --- commandHistory.leaveBrowse ---
+
+// leaveBrowse exits browse mode but preserves draft so a subsequent
+// Down past newest restores the user's original pre-recall input.
+func TestCommandHistoryLeaveBrowse(t *testing.T) {
+	h := &commandHistory{
+		entries: []string{"a", "b"},
+		cursor:  1,
+		draft:   "pre-recall",
+	}
+
+	h.leaveBrowse()
+	assert.Equal(t, -1, h.cursor)
+	assert.Equal(t, "pre-recall", h.draft, "draft must be preserved")
+}
+
+func TestCommandHistoryLeaveBrowseNilReceiver(t *testing.T) {
+	var h *commandHistory
+	assert.NotPanics(t, func() { h.leaveBrowse() })
+}
+
 // --- commandHistory.save / loadCommandHistory ---
 
 func TestCommandHistorySaveAndLoad(t *testing.T) {
@@ -147,6 +168,27 @@ func TestCommandHistorySaveAndLoad(t *testing.T) {
 	loaded := loadCommandHistory()
 	assert.Equal(t, []string{"get pods", "get deployments", "logs my-pod"}, loaded.entries)
 	assert.Equal(t, -1, loaded.cursor)
+}
+
+// History files persist raw search queries that may contain sensitive
+// fragments (tokens, emails). On shared hosts, default 0644/0755 modes
+// would leak these to other local users. Save() must use 0600 for the
+// file and 0700 for the parent directory.
+func TestCommandHistorySaveUsesRestrictivePermissions(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", tmpDir)
+
+	h := &commandHistory{cursor: -1}
+	h.add("secret query")
+	h.save()
+
+	dirInfo, err := os.Stat(filepath.Join(tmpDir, "lfk"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "lfk dir must be user-only")
+
+	fileInfo, err := os.Stat(filepath.Join(tmpDir, "lfk", "history"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), fileInfo.Mode().Perm(), "history file must be user-only")
 }
 
 func TestLoadCommandHistoryNoFile(t *testing.T) {
@@ -278,6 +320,30 @@ func TestLoadInputHistoryIsolatesQueryFromCommand(t *testing.T) {
 
 	assert.Equal(t, []string{"nginx"}, gotQuery.entries)
 	assert.Equal(t, []string{":get pods"}, gotCmd.entries)
+}
+
+// TestLoadInputHistoryIsolatesLogSearchFromQuery pins the second
+// separation that matters: the log viewer's `/` matches raw log lines
+// (substring/regex over arbitrary text), not resource names. Pooling
+// it with the explorer query history would surface kubernetes resource
+// patterns when recalling in the log viewer, and log fragments when
+// recalling in the explorer — both irrelevant to the user.
+func TestLoadInputHistoryIsolatesLogSearchFromQuery(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+	qh := loadInputHistory(historyFileQuery)
+	qh.add("nginx")
+	qh.save()
+
+	lh := loadInputHistory(historyFileLogSearch)
+	lh.add("ERROR connection refused")
+	lh.save()
+
+	gotQuery := loadInputHistory(historyFileQuery)
+	gotLog := loadInputHistory(historyFileLogSearch)
+
+	assert.Equal(t, []string{"nginx"}, gotQuery.entries)
+	assert.Equal(t, []string{"ERROR connection refused"}, gotLog.entries)
 }
 
 // TestSavePreservesFilenameAcrossSaves verifies a loaded instance keeps

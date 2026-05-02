@@ -354,6 +354,7 @@ func helpSections() []helpSection {
 				{"J/K", "Scroll preview side panel down/up (when visible)"},
 				{"c", "Toggle previous container logs"},
 				{"/", "Search in logs"},
+				{"", "Up/Down inside log search recalls previous queries (persistent across sessions)."},
 				{"n", "Next search match"},
 				{"N", "Previous search match"},
 				{"123G", "Jump to line number"},

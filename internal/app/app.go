@@ -507,9 +507,10 @@ type Model struct {
 	logLineInput string
 
 	// Log viewer: search state.
-	logSearchActive bool
-	logSearchInput  TextInput
-	logSearchQuery  string // applied search
+	logSearchActive  bool
+	logSearchInput   TextInput
+	logSearchQuery   string // applied search
+	logSearchHistory *commandHistory
 
 	// Describe viewer state.
 	describeContent      string
@@ -1029,6 +1030,7 @@ func NewModel(client *k8s.Client, opts StartupOptions) Model {
 		pendingPortForwards:        loadPortForwardState(),
 		commandHistory:             loadCommandHistory(),
 		queryHistory:               loadInputHistory(historyFileQuery),
+		logSearchHistory:           loadInputHistory(historyFileLogSearch),
 		pinnedState:                pinnedSt,
 		namespace:                  defaultNS,
 		spinner:                    s,

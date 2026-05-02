@@ -314,7 +314,7 @@ All search and filter inputs support three modes, auto-detected from the query s
 
 **Clipboard paste**: All search, filter, and command bar inputs accept pasted text (`Cmd+V` on macOS, `Ctrl+Shift+V` on Linux). Multiline paste shows a confirmation dialog.
 
-**Recall previous queries**: While the `f` filter or `/` search input is open, press `Up` / `Down` to cycle through previous queries. `/` and `f` share one history (the matcher and matched fields are identical between them), kept separate from the `:` command bar. Both persist across sessions under `$XDG_STATE_HOME/lfk/` (default `~/.local/state/lfk/`) — `query-history` for `/` and `f`, `history` for the command bar.
+**Recall previous queries**: While the `f` filter or `/` search input is open, press `Up` / `Down` to cycle through previous queries. `/` and `f` share one history (the matcher and matched fields are identical between them), kept separate from the `:` command bar. The log viewer's `/` search has its own history because it matches raw log lines (substring/regex over arbitrary text) rather than resource names — pooling it would surface irrelevant entries. All three persist across sessions under `$XDG_STATE_HOME/lfk/` (default `~/.local/state/lfk/`) — `query-history` for explorer `/` and `f`, `log-search-history` for the log viewer's `/`, and `history` for the command bar.
 
 ## Contributing
 

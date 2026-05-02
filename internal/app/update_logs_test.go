@@ -6,6 +6,7 @@ import (
 	"github.com/janosmiko/lfk/internal/model"
 	"github.com/janosmiko/lfk/internal/ui"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- findNextLogMatch ---
@@ -555,6 +556,216 @@ func TestLogSearchTypingUpdatesQueryLive(t *testing.T) {
 	rm = result.(Model)
 	assert.Equal(t, "e", rm.logSearchQuery,
 		"backspace must keep logSearchQuery in sync, not leave the highlight stale")
+}
+
+// --- log search history (Up/Down recall, persisted to log-search-history) ---
+
+// Enter commits the query into the per-viewer log search history so
+// later sessions can recall it via Up. Mirrors the explorer's `/`
+// behaviour (queryHistory.add+save in handleSearchKey) but writes to a
+// separate file because log search runs on raw log bytes, not resource
+// names.
+func TestLogSearchHistoryEnterAdds(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{cursor: -1}
+	m.logSearchActive = true
+	m.logSearchInput.Insert("error")
+	m.logLines = []string{"error line"}
+
+	result, _ := m.handleLogKey(keyMsg("enter"))
+	rm := result.(Model)
+	assert.Equal(t, []string{"error"}, rm.logSearchHistory.entries)
+}
+
+// Esc cancels without committing — the input is wiped and the history
+// stays untouched. Otherwise an aborted exploratory query would clutter
+// recall.
+func TestLogSearchHistoryEscDoesNotAdd(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{cursor: -1}
+	m.logSearchActive = true
+	m.logSearchInput.Insert("typo")
+
+	result, _ := m.handleLogKey(keyMsg("esc"))
+	rm := result.(Model)
+	assert.Empty(t, rm.logSearchHistory.entries)
+}
+
+// Up replays the most recent entry into the input and mirrors it into
+// logSearchQuery so the live highlight repaints (same contract as
+// typing). Down past the newest entry restores the draft the user was
+// composing before they started recalling.
+func TestLogSearchHistoryUpDownRecall(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"first", "second"},
+	}
+	m.logSearchActive = true
+	m.logSearchInput.Insert("draft")
+	m.logSearchQuery = "draft"
+
+	// Up -> newest entry, draft saved.
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.Equal(t, "second", rm.logSearchInput.Value)
+	assert.Equal(t, "second", rm.logSearchQuery)
+
+	// Up again -> older entry.
+	result, _ = rm.handleLogKey(keyMsg("up"))
+	rm = result.(Model)
+	assert.Equal(t, "first", rm.logSearchInput.Value)
+
+	// Down -> back toward newer.
+	result, _ = rm.handleLogKey(keyMsg("down"))
+	rm = result.(Model)
+	assert.Equal(t, "second", rm.logSearchInput.Value)
+
+	// Down past newest -> restores the original draft.
+	result, _ = rm.handleLogKey(keyMsg("down"))
+	rm = result.(Model)
+	assert.Equal(t, "draft", rm.logSearchInput.Value)
+	assert.Equal(t, "draft", rm.logSearchQuery)
+}
+
+// Editing a recalled entry must drop the user out of history-browsing
+// mode (cursor -> -1, draft cleared). Otherwise a subsequent Down would
+// snap back to the original pre-recall draft and silently discard the
+// edits the user just typed.
+func TestLogSearchHistoryEditAfterRecallResets(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"old"},
+	}
+	m.logSearchActive = true
+
+	// Recall the entry.
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.Equal(t, "old", rm.logSearchInput.Value)
+	assert.NotEqual(t, -1, rm.logSearchHistory.cursor)
+
+	// Type a char -> resets cursor to -1.
+	result, _ = rm.handleLogKey(keyMsg("x"))
+	rm = result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+	assert.Equal(t, "oldx", rm.logSearchInput.Value)
+}
+
+// Ctrl+W (delete-word) after recall must also drop out of history
+// browsing, for the same reason as backspace and typing — a follow-up
+// Down past newest should restore the post-edit text, not the
+// pre-recall draft.
+func TestLogSearchHistoryCtrlWAfterRecallResets(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"hello world"},
+	}
+	m.logSearchActive = true
+
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.NotEqual(t, -1, rm.logSearchHistory.cursor)
+
+	result, _ = rm.handleLogKey(keyMsg("ctrl+w"))
+	rm = result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+}
+
+// Ctrl+U (delete-to-line-start) after recall must also drop out of
+// history browsing, same rationale as backspace, ctrl+w, and typing.
+func TestLogSearchHistoryCtrlUAfterRecallResets(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"hello world"},
+	}
+	m.logSearchActive = true
+
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.NotEqual(t, -1, rm.logSearchHistory.cursor)
+
+	result, _ = rm.handleLogKey(keyMsg("ctrl+u"))
+	rm = result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+	assert.Equal(t, "", rm.logSearchInput.Value)
+}
+
+// Backspace after recall also resets the history cursor for the same
+// reason as the typing case above.
+func TestLogSearchHistoryBackspaceAfterRecallResets(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"old"},
+	}
+	m.logSearchActive = true
+
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.NotEqual(t, -1, rm.logSearchHistory.cursor)
+
+	result, _ = rm.handleLogKey(keyMsg("backspace"))
+	rm = result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+}
+
+// TestLogSearchHistoryEditThenDownRestoresPreRecallDraft pins the fix
+// from issue #115 for the log viewer's / search: after Up→edit, Down
+// past newest must restore the original pre-recall draft, not "".
+func TestLogSearchHistoryEditThenDownRestoresPreRecallDraft(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"err"},
+	}
+	m.logSearchActive = true
+	m.logSearchInput.Set("ngi")
+
+	// Up: recall "err", draft "ngi" saved.
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	require.Equal(t, "err", rm.logSearchInput.Value)
+
+	// Edit: type a char. Must leave browse but preserve draft.
+	result, _ = rm.handleLogKey(keyMsg("x"))
+	rm = result.(Model)
+	require.Equal(t, "errx", rm.logSearchInput.Value)
+	require.Equal(t, -1, rm.logSearchHistory.cursor)
+
+	// Down past newest: pre-recall draft "ngi" must come back.
+	result, _ = rm.handleLogKey(keyMsg("down"))
+	rm = result.(Model)
+	assert.Equal(t, "ngi", rm.logSearchInput.Value, "Down past newest must restore pre-recall draft")
+}
+
+// Opening search via `/` resets any leftover cursor from a prior
+// recall so the next Up starts at the newest entry, not partway through
+// the previous browse.
+func TestLogSearchHistorySlashResetsCursor(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  0, // simulating a prior in-progress recall
+		entries: []string{"a", "b"},
+		draft:   "stale",
+	}
+
+	result, _ := m.handleLogKey(keyMsg("/"))
+	rm := result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+	assert.Equal(t, "", rm.logSearchHistory.draft)
 }
 
 func TestCovLogVisualKeyEsc(t *testing.T) {
