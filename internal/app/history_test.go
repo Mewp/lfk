@@ -280,6 +280,30 @@ func TestLoadInputHistoryIsolatesQueryFromCommand(t *testing.T) {
 	assert.Equal(t, []string{":get pods"}, gotCmd.entries)
 }
 
+// TestLoadInputHistoryIsolatesLogSearchFromQuery pins the second
+// separation that matters: the log viewer's `/` matches raw log lines
+// (substring/regex over arbitrary text), not resource names. Pooling
+// it with the explorer query history would surface kubernetes resource
+// patterns when recalling in the log viewer, and log fragments when
+// recalling in the explorer — both irrelevant to the user.
+func TestLoadInputHistoryIsolatesLogSearchFromQuery(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+	qh := loadInputHistory(historyFileQuery)
+	qh.add("nginx")
+	qh.save()
+
+	lh := loadInputHistory(historyFileLogSearch)
+	lh.add("ERROR connection refused")
+	lh.save()
+
+	gotQuery := loadInputHistory(historyFileQuery)
+	gotLog := loadInputHistory(historyFileLogSearch)
+
+	assert.Equal(t, []string{"nginx"}, gotQuery.entries)
+	assert.Equal(t, []string{"ERROR connection refused"}, gotLog.entries)
+}
+
 // TestSavePreservesFilenameAcrossSaves verifies a loaded instance keeps
 // writing back to the same file, rather than silently defaulting to
 // "history" after the first save.

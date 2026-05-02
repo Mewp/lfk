@@ -15,10 +15,15 @@ const maxHistoryEntries = 500
 // fields are identical between the two, only the action on a match differs
 // (jump vs. narrow), so users want to recall the same query regardless of
 // which mode they re-enter. The `:` command bar stays separate because its
-// inputs are kubectl-shaped commands, not resource-name queries.
+// inputs are kubectl-shaped commands, not resource-name queries. The log
+// viewer's `/` search is also kept separate: it matches against raw log
+// lines (substring/regex over arbitrary text), not resource names, so
+// pooling it with the explorer query history would surface irrelevant
+// entries on Up/Down in either context.
 const (
-	historyFileCommand = "history"
-	historyFileQuery   = "query-history"
+	historyFileCommand   = "history"
+	historyFileQuery     = "query-history"
+	historyFileLogSearch = "log-search-history"
 )
 
 // commandHistory manages a persistent ring of recent text-input entries.

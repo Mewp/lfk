@@ -254,19 +254,32 @@ func (m Model) handleLogSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		m.logSearchActive = false
 		m.logSearchQuery = m.logSearchInput.Value
+		m.logSearchHistory.add(m.logSearchInput.Value)
+		m.logSearchHistory.save()
 		m.findNextLogMatch(true)
 	case "esc":
 		m.logSearchActive = false
 		m.logSearchInput.Clear()
 		m.logSearchQuery = ""
+	case "up":
+		m.logSearchInput.Set(m.logSearchHistory.up(m.logSearchInput.Value))
+		m.logSearchQuery = m.logSearchInput.Value
+	case "down":
+		m.logSearchInput.Set(m.logSearchHistory.down())
+		m.logSearchQuery = m.logSearchInput.Value
 	case "backspace":
 		if len(m.logSearchInput.Value) > 0 {
 			m.logSearchInput.Backspace()
 		}
 		m.logSearchQuery = m.logSearchInput.Value
+		// Editing a recalled entry leaves history navigation: the edited
+		// text becomes the new draft, so a later Down past newest restores
+		// the edits, not the original pre-recall draft.
+		m.logSearchHistory.reset()
 	case "ctrl+w":
 		m.logSearchInput.DeleteWord()
 		m.logSearchQuery = m.logSearchInput.Value
+		m.logSearchHistory.reset()
 	case "ctrl+a":
 		m.logSearchInput.Home()
 	case "ctrl+e":
@@ -286,6 +299,7 @@ func (m Model) handleLogSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// findNextLogMatch; before that the user only saw the input
 			// echo with no feedback on whether the query matches anything.
 			m.logSearchQuery = m.logSearchInput.Value
+			m.logSearchHistory.reset()
 		}
 	}
 	return m, nil
@@ -786,6 +800,7 @@ func (m Model) handleLogKeySlash() Model {
 	m.logLineInput = ""
 	m.logSearchActive = true
 	m.logSearchInput.Clear()
+	m.logSearchHistory.reset()
 	return m
 }
 

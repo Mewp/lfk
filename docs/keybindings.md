@@ -249,6 +249,7 @@ my namespace" mode.
 | `J` / `K` | Scroll the preview side panel down / up (one row, no-op when panel is hidden) |
 | `c` | Toggle previous container logs |
 | `/` | Search in logs |
+| `Up` / `Down` | Inside `/`: cycle through previous log search queries (persistent history). |
 | `n` / `N` | Next / previous search match |
 | `123G` | Jump to specific line number |
 | `S` | Save loaded logs to file (path copied to clipboard) |
@@ -261,6 +262,8 @@ my namespace" mode.
 | `123y` | Copy number of lines from cursor (count-prefixed yank) |
 | `\` | Switch pod / filter containers (space: select, enter: apply, / to filter) |
 | `q` / `Esc` | Close log viewer |
+
+The log viewer's `/` keeps its own persistent history at `$XDG_STATE_HOME/lfk/log-search-history` (default `~/.local/state/lfk/log-search-history`), separate from the explorer's `query-history`. Log search matches raw log lines (substring/regex over arbitrary text) rather than resource names, so pooling the two would surface irrelevant entries on Up/Down in either context.
 
 > **Tail-first loading**: Full Logs (`L` key or action menu `L`) load the last 1000 lines initially (configurable via `log_tail_lines`). Tail Logs (action menu `l`) load only the last 10 lines (configurable via `log_tail_lines_short`) — useful for a quick peek without the full history hit. Scrolling to the top automatically loads older log history in both modes.
 
