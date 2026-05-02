@@ -178,3 +178,16 @@ func (h *commandHistory) reset() {
 	h.cursor = -1
 	h.draft = ""
 }
+
+// leaveBrowse exits history browsing while preserving the pre-recall
+// draft. Use this when the user edits a recalled entry (typing,
+// backspace, ctrl+w, ctrl+u): the edited text becomes the new content,
+// but a subsequent Down past the newest entry should restore the
+// original draft the user had before pressing Up — not "" (which is
+// what reset() would leave behind). Nil receiver no-op.
+func (h *commandHistory) leaveBrowse() {
+	if h == nil {
+		return
+	}
+	h.cursor = -1
+}

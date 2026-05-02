@@ -353,11 +353,11 @@ func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterText = m.filterInput.Value
 			m.setCursor(0)
 			m.clampCursor()
-			// Editing a recalled entry leaves history navigation: the
-			// edited text becomes the new draft, so a later Down past
-			// newest restores the edits, not the original pre-recall
-			// draft.
-			m.queryHistory.reset()
+			// Editing a recalled entry leaves history navigation but
+			// keeps the pre-recall draft intact, so a later Down past
+			// newest restores the original draft the user had before
+			// pressing Up — not the recalled-then-edited text.
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	case "ctrl+w":
@@ -365,14 +365,14 @@ func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.filterText = m.filterInput.Value
 		m.setCursor(0)
 		m.clampCursor()
-		m.queryHistory.reset()
+		m.queryHistory.leaveBrowse()
 		return m, nil
 	case "ctrl+u":
 		m.filterInput.DeleteLine()
 		m.filterText = m.filterInput.Value
 		m.setCursor(0)
 		m.clampCursor()
-		m.queryHistory.reset()
+		m.queryHistory.leaveBrowse()
 		return m, nil
 	case "ctrl+a":
 		m.filterInput.Home()
@@ -395,7 +395,7 @@ func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterText = m.filterInput.Value
 			m.setCursor(0)
 			m.clampCursor()
-			m.queryHistory.reset()
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	}
@@ -461,18 +461,18 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.jumpToSearchMatch(0)
 			// Editing a recalled entry leaves history navigation; see
 			// the analogous comment in handleFilterKey for rationale.
-			m.queryHistory.reset()
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	case "ctrl+w":
 		m.searchInput.DeleteWord()
 		m.jumpToSearchMatch(0)
-		m.queryHistory.reset()
+		m.queryHistory.leaveBrowse()
 		return m, nil
 	case "ctrl+u":
 		m.searchInput.DeleteLine()
 		m.jumpToSearchMatch(0)
-		m.queryHistory.reset()
+		m.queryHistory.leaveBrowse()
 		return m, nil
 	case "ctrl+a":
 		m.searchInput.Home()
@@ -499,7 +499,7 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(key) == 1 && key[0] >= 32 && key[0] < 127 {
 			m.searchInput.Insert(key)
 			m.jumpToSearchMatch(0)
-			m.queryHistory.reset()
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	}

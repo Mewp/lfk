@@ -125,6 +125,27 @@ func TestCommandHistoryReset(t *testing.T) {
 	assert.Empty(t, h.draft)
 }
 
+// --- commandHistory.leaveBrowse ---
+
+// leaveBrowse exits browse mode but preserves draft so a subsequent
+// Down past newest restores the user's original pre-recall input.
+func TestCommandHistoryLeaveBrowse(t *testing.T) {
+	h := &commandHistory{
+		entries: []string{"a", "b"},
+		cursor:  1,
+		draft:   "pre-recall",
+	}
+
+	h.leaveBrowse()
+	assert.Equal(t, -1, h.cursor)
+	assert.Equal(t, "pre-recall", h.draft, "draft must be preserved")
+}
+
+func TestCommandHistoryLeaveBrowseNilReceiver(t *testing.T) {
+	var h *commandHistory
+	assert.NotPanics(t, func() { h.leaveBrowse() })
+}
+
 // --- commandHistory.save / loadCommandHistory ---
 
 func TestCommandHistorySaveAndLoad(t *testing.T) {

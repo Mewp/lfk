@@ -797,6 +797,36 @@ func TestHandleFilterKeyEditAfterRecallPreservesEdits(t *testing.T) {
 	assert.Equal(t, "defaultx", m.filterInput.Value)
 }
 
+// TestHandleFilterKeyEditThenDownRestoresPreRecallDraft pins the fix
+// from issue #115: after Up→edit, Down past newest must restore the
+// user's original pre-recall draft rather than an empty string. This
+// is what differentiates leaveBrowse() from reset(): cursor goes back
+// to -1, but draft is preserved.
+func TestHandleFilterKeyEditThenDownRestoresPreRecallDraft(t *testing.T) {
+	m := basePush4Model()
+	m.queryHistory = &commandHistory{cursor: -1}
+	m.queryHistory.add("default")
+	m.filterActive = true
+	m.filterInput.Set("ngi")
+
+	// Up: recall "default", original draft "ngi" saved.
+	result, _ := m.handleFilterKey(keyMsg("up"))
+	m = result.(Model)
+	require.Equal(t, "default", m.filterInput.Value)
+
+	// Edit: type one char. Must leave browse but keep draft="ngi".
+	result, _ = m.handleFilterKey(keyMsg("x"))
+	m = result.(Model)
+	require.Equal(t, "defaultx", m.filterInput.Value)
+	require.Equal(t, -1, m.queryHistory.cursor)
+
+	// Down past newest: should restore "ngi" (the pre-recall draft),
+	// not "" (which is what the buggy reset()-based code returns).
+	result, _ = m.handleFilterKey(keyMsg("down"))
+	m = result.(Model)
+	assert.Equal(t, "ngi", m.filterInput.Value, "Down past newest must restore pre-recall draft")
+}
+
 // TestHandleFilterKeyBackspaceAfterRecallResetsHistory: backspace is
 // also an edit and must reset the history cursor. Same rationale as
 // TestHandleFilterKeyEditAfterRecallPreservesEdits.
@@ -842,6 +872,30 @@ func TestHandleSearchKeyEditAfterRecallPreservesEdits(t *testing.T) {
 	result, _ = m.handleSearchKey(keyMsg("down"))
 	m = result.(Model)
 	assert.Equal(t, "redisx", m.searchInput.Value)
+}
+
+// TestHandleSearchKeyEditThenDownRestoresPreRecallDraft pins the fix
+// from issue #115 for the / search handler — see the filter
+// counterpart for full rationale.
+func TestHandleSearchKeyEditThenDownRestoresPreRecallDraft(t *testing.T) {
+	m := basePush4Model()
+	m.queryHistory = &commandHistory{cursor: -1}
+	m.queryHistory.add("redis")
+	m.searchActive = true
+	m.searchInput.Set("ngi")
+
+	result, _ := m.handleSearchKey(keyMsg("up"))
+	m = result.(Model)
+	require.Equal(t, "redis", m.searchInput.Value)
+
+	result, _ = m.handleSearchKey(keyMsg("x"))
+	m = result.(Model)
+	require.Equal(t, "redisx", m.searchInput.Value)
+	require.Equal(t, -1, m.queryHistory.cursor)
+
+	result, _ = m.handleSearchKey(keyMsg("down"))
+	m = result.(Model)
+	assert.Equal(t, "ngi", m.searchInput.Value, "Down past newest must restore pre-recall draft")
 }
 
 // TestHandleSearchKeyBackspaceAfterRecallResetsHistory: backspace must

@@ -6,6 +6,7 @@ import (
 	"github.com/janosmiko/lfk/internal/model"
 	"github.com/janosmiko/lfk/internal/ui"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- findNextLogMatch ---
@@ -674,6 +675,36 @@ func TestLogSearchHistoryBackspaceAfterRecallResets(t *testing.T) {
 	result, _ = rm.handleLogKey(keyMsg("backspace"))
 	rm = result.(Model)
 	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+}
+
+// TestLogSearchHistoryEditThenDownRestoresPreRecallDraft pins the fix
+// from issue #115 for the log viewer's / search: after Up→edit, Down
+// past newest must restore the original pre-recall draft, not "".
+func TestLogSearchHistoryEditThenDownRestoresPreRecallDraft(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"err"},
+	}
+	m.logSearchActive = true
+	m.logSearchInput.Set("ngi")
+
+	// Up: recall "err", draft "ngi" saved.
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	require.Equal(t, "err", rm.logSearchInput.Value)
+
+	// Edit: type a char. Must leave browse but preserve draft.
+	result, _ = rm.handleLogKey(keyMsg("x"))
+	rm = result.(Model)
+	require.Equal(t, "errx", rm.logSearchInput.Value)
+	require.Equal(t, -1, rm.logSearchHistory.cursor)
+
+	// Down past newest: pre-recall draft "ngi" must come back.
+	result, _ = rm.handleLogKey(keyMsg("down"))
+	rm = result.(Model)
+	assert.Equal(t, "ngi", rm.logSearchInput.Value, "Down past newest must restore pre-recall draft")
 }
 
 // Opening search via `/` resets any leftover cursor from a prior

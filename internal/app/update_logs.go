@@ -271,16 +271,16 @@ func (m Model) handleLogSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.logSearchInput.Value) > 0 {
 			m.logSearchInput.Backspace()
 			m.logSearchQuery = m.logSearchInput.Value
-			// Editing a recalled entry leaves history navigation: the
-			// edited text becomes the new draft, so a later Down past
-			// newest restores the edits, not the original pre-recall
-			// draft.
-			m.logSearchHistory.reset()
+			// Editing a recalled entry leaves history navigation but
+			// keeps the pre-recall draft intact, so a later Down past
+			// newest restores the original draft the user had before
+			// pressing Up — not the recalled-then-edited text.
+			m.logSearchHistory.leaveBrowse()
 		}
 	case "ctrl+w":
 		m.logSearchInput.DeleteWord()
 		m.logSearchQuery = m.logSearchInput.Value
-		m.logSearchHistory.reset()
+		m.logSearchHistory.leaveBrowse()
 	case "ctrl+a":
 		m.logSearchInput.Home()
 	case "ctrl+e":
@@ -300,7 +300,7 @@ func (m Model) handleLogSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// findNextLogMatch; before that the user only saw the input
 			// echo with no feedback on whether the query matches anything.
 			m.logSearchQuery = m.logSearchInput.Value
-			m.logSearchHistory.reset()
+			m.logSearchHistory.leaveBrowse()
 		}
 	}
 	return m, nil
