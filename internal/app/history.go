@@ -27,8 +27,8 @@ const (
 )
 
 // commandHistory manages a persistent ring of recent text-input entries.
-// Used by the command bar and (per filename) the explorer search and
-// filter inputs.
+// Used by the command bar, the explorer search and filter inputs, and
+// the log viewer's `/` search (per filename).
 type commandHistory struct {
 	entries  []string
 	cursor   int    // -1 means "not browsing history" (typing new command)
