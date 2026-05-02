@@ -294,6 +294,9 @@ func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterText = m.filterInput.Value
 			m.setCursor(0)
 			m.clampCursor()
+			// Paste counts as an edit: leave history-browse so a
+			// follow-up Down doesn't keep navigating history.
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	}
@@ -412,6 +415,9 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if text != "" {
 			m.searchInput.Insert(text)
 			m.jumpToSearchMatch(0)
+			// Paste counts as an edit: leave history-browse so a
+			// follow-up Down doesn't keep navigating history.
+			m.queryHistory.leaveBrowse()
 		}
 		return m, nil
 	}

@@ -170,6 +170,27 @@ func TestCommandHistorySaveAndLoad(t *testing.T) {
 	assert.Equal(t, -1, loaded.cursor)
 }
 
+// History files persist raw search queries that may contain sensitive
+// fragments (tokens, emails). On shared hosts, default 0644/0755 modes
+// would leak these to other local users. Save() must use 0600 for the
+// file and 0700 for the parent directory.
+func TestCommandHistorySaveUsesRestrictivePermissions(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", tmpDir)
+
+	h := &commandHistory{cursor: -1}
+	h.add("secret query")
+	h.save()
+
+	dirInfo, err := os.Stat(filepath.Join(tmpDir, "lfk"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "lfk dir must be user-only")
+
+	fileInfo, err := os.Stat(filepath.Join(tmpDir, "lfk", "history"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), fileInfo.Mode().Perm(), "history file must be user-only")
+}
+
 func TestLoadCommandHistoryNoFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", tmpDir)

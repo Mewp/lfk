@@ -847,6 +847,53 @@ func TestHandleFilterKeyBackspaceAfterRecallResetsHistory(t *testing.T) {
 	assert.Equal(t, -1, m.queryHistory.cursor, "backspace must reset history cursor")
 }
 
+// TestHandleFilterKeyPasteAfterRecallLeavesBrowse pins that paste is
+// also an edit: pasting into a recalled entry must leave history-browse
+// mode so a follow-up Down doesn't navigate further into history.
+func TestHandleFilterKeyPasteAfterRecallLeavesBrowse(t *testing.T) {
+	m := basePush4Model()
+	m.queryHistory = &commandHistory{cursor: -1}
+	m.queryHistory.add("older")
+	m.queryHistory.add("default")
+	m.filterActive = true
+	m.filterInput.Set("ngi")
+
+	// Up: recall newest "default", draft "ngi" saved.
+	result, _ := m.handleFilterKey(keyMsg("up"))
+	m = result.(Model)
+	require.Equal(t, "default", m.filterInput.Value)
+	require.NotEqual(t, -1, m.queryHistory.cursor)
+
+	// Paste: must mutate the input and exit history-browse.
+	pasteMsg := tea.KeyMsg{Runes: []rune("XYZ"), Paste: true}
+	result, _ = m.handleFilterKey(pasteMsg)
+	m = result.(Model)
+	require.Equal(t, "defaultXYZ", m.filterInput.Value)
+	assert.Equal(t, -1, m.queryHistory.cursor, "paste must leave history-browse")
+}
+
+// TestHandleSearchKeyPasteAfterRecallLeavesBrowse: / search counterpart
+// to the filter paste test above.
+func TestHandleSearchKeyPasteAfterRecallLeavesBrowse(t *testing.T) {
+	m := basePush4Model()
+	m.queryHistory = &commandHistory{cursor: -1}
+	m.queryHistory.add("older")
+	m.queryHistory.add("redis")
+	m.searchActive = true
+	m.searchInput.Set("ngi")
+
+	result, _ := m.handleSearchKey(keyMsg("up"))
+	m = result.(Model)
+	require.Equal(t, "redis", m.searchInput.Value)
+	require.NotEqual(t, -1, m.queryHistory.cursor)
+
+	pasteMsg := tea.KeyMsg{Runes: []rune("XYZ"), Paste: true}
+	result, _ = m.handleSearchKey(pasteMsg)
+	m = result.(Model)
+	require.Equal(t, "redisXYZ", m.searchInput.Value)
+	assert.Equal(t, -1, m.queryHistory.cursor, "paste must leave history-browse")
+}
+
 // TestHandleSearchKeyEditAfterRecallPreservesEdits is the / search
 // counterpart to the filter test.
 func TestHandleSearchKeyEditAfterRecallPreservesEdits(t *testing.T) {

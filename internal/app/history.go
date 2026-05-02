@@ -122,12 +122,16 @@ func (h *commandHistory) save() {
 	if path == "" {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 0700/0600: history files persist raw search/filter/log-search
+	// queries that may contain sensitive fragments (tokens, emails),
+	// so restrict them to the owning user — same convention as
+	// ~/.bash_history etc.
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		logger.Warn("Failed to create history directory", "error", err, "path", path)
 		return
 	}
 	content := strings.Join(h.entries, "\n") + "\n"
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		logger.Warn("Failed to write history file", "error", err, "path", path)
 	}
 }
