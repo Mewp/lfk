@@ -281,6 +281,10 @@ func (m Model) handleLogSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.logSearchInput.DeleteWord()
 		m.logSearchQuery = m.logSearchInput.Value
 		m.logSearchHistory.leaveBrowse()
+	case "ctrl+u":
+		m.logSearchInput.DeleteLine()
+		m.logSearchQuery = m.logSearchInput.Value
+		m.logSearchHistory.leaveBrowse()
 	case "ctrl+a":
 		m.logSearchInput.Home()
 	case "ctrl+e":

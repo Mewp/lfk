@@ -500,6 +500,28 @@ func TestCovLogSearchKeyBackspace(t *testing.T) {
 	assert.Equal(t, "a", rm.logSearchInput.Value)
 }
 
+// Ctrl+U is the standard readline "delete-to-line-start" shortcut and
+// is supported by the explorer's `/` and `f` inputs (via DeleteLine).
+// The log viewer's `/` input previously dropped Ctrl+U on the floor —
+// it fell through to the printable-char branch in `default`, which
+// rejected it. Verify both that the input is cleared and that
+// logSearchQuery is kept in sync so the live highlight overlay stops
+// painting matches for the now-empty query.
+func TestCovLogSearchKeyCtrlU(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchActive = true
+	m.logSearchInput.Insert("error")
+	m.logSearchQuery = "error"
+	m.logLines = []string{"error line"}
+
+	result, _ := m.handleLogKey(keyMsg("ctrl+u"))
+	rm := result.(Model)
+	assert.Equal(t, "", rm.logSearchInput.Value)
+	assert.Equal(t, "", rm.logSearchQuery,
+		"Ctrl+U must clear logSearchQuery so the highlight overlay stops painting")
+}
+
 func TestCovLogSearchKeyTyping(t *testing.T) {
 	m := baseModelNav()
 	m.mode = modeLogs
@@ -655,6 +677,27 @@ func TestLogSearchHistoryCtrlWAfterRecallResets(t *testing.T) {
 	result, _ = rm.handleLogKey(keyMsg("ctrl+w"))
 	rm = result.(Model)
 	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+}
+
+// Ctrl+U (delete-to-line-start) after recall must also drop out of
+// history browsing, same rationale as backspace, ctrl+w, and typing.
+func TestLogSearchHistoryCtrlUAfterRecallResets(t *testing.T) {
+	m := baseModelNav()
+	m.mode = modeLogs
+	m.logSearchHistory = &commandHistory{
+		cursor:  -1,
+		entries: []string{"hello world"},
+	}
+	m.logSearchActive = true
+
+	result, _ := m.handleLogKey(keyMsg("up"))
+	rm := result.(Model)
+	assert.NotEqual(t, -1, rm.logSearchHistory.cursor)
+
+	result, _ = rm.handleLogKey(keyMsg("ctrl+u"))
+	rm = result.(Model)
+	assert.Equal(t, -1, rm.logSearchHistory.cursor)
+	assert.Equal(t, "", rm.logSearchInput.Value)
 }
 
 // Backspace after recall also resets the history cursor for the same
