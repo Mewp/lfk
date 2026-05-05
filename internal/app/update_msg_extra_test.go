@@ -1713,6 +1713,99 @@ func TestUpdatePodMetricsEnrichedClearsStaleRowOnMissingPod(t *testing.T) {
 	assert.Equal(t, "100m", col("CPU Req"), "raw request column must survive so the next successful tick can recompute")
 }
 
+// Regression: PodInitializing/CrashLoopBackOff pods saw the Reason column
+// hop between two positions every watch tick because the three paths that
+// rebuild item.Columns disagreed on order. carryOverMetricsColumns and
+// updatePodMetricsEnriched put CPU/MEM first then everything else;
+// clearStalePodMetricsColumns used to put everything else first then CPU/MEM,
+// so each tick flipped the column order and the user saw a ~1 Hz layout blink.
+// Pin the order: CPU/MEM block first, all other columns after, identical
+// across all three paths.
+func TestPodMetricsColumnOrderIsStableAcrossAllPaths(t *testing.T) {
+	metricsKeys := []string{"CPU", "CPU/R", "CPU/L", "MEM", "MEM/R", "MEM/L"}
+	keysOf := func(cols []model.KeyValue) []string {
+		ks := make([]string, len(cols))
+		for i, kv := range cols {
+			ks[i] = kv.Key
+		}
+		return ks
+	}
+	assertCPUMemFirst := func(t *testing.T, label string, cols []model.KeyValue) {
+		t.Helper()
+		require.GreaterOrEqual(t, len(cols), len(metricsKeys), "%s: too few columns", label)
+		for i, want := range metricsKeys {
+			assert.Equal(t, want, cols[i].Key, "%s: column %d must be %q (CPU/MEM block before other columns); full order=%v", label, i, want, keysOf(cols))
+		}
+	}
+
+	// Path 1: clearStalePodMetricsColumns (no metrics for this pod).
+	t.Run("clearStalePodMetricsColumns", func(t *testing.T) {
+		m := baseModel()
+		m.middleItems = []model.Item{{
+			Name: "pod-x", Namespace: "default",
+			Columns: []model.KeyValue{
+				{Key: "Reason", Value: "PodInitializing"},
+				{Key: "QoS", Value: "BestEffort"},
+				{Key: "CPU Req", Value: "100m"},
+				{Key: "CPU", Value: "42m"}, // stale prior-tick value
+			},
+		}}
+		result, _ := m.Update(podMetricsEnrichedMsg{
+			metrics: map[string]model.PodMetrics{"default/other": {Name: "other"}},
+			gen:     0,
+		})
+		assertCPUMemFirst(t, "clearStale", result.(Model).middleItems[0].Columns)
+	})
+
+	// Path 2: updatePodMetricsEnriched with real metrics for this pod.
+	t.Run("updatePodMetricsEnriched", func(t *testing.T) {
+		m := baseModel()
+		m.middleItems = []model.Item{{
+			Name: "pod-x", Namespace: "default",
+			Columns: []model.KeyValue{
+				{Key: "Reason", Value: "Running"},
+				{Key: "QoS", Value: "BestEffort"},
+				{Key: "CPU Req", Value: "100m"},
+			},
+		}}
+		result, _ := m.Update(podMetricsEnrichedMsg{
+			metrics: map[string]model.PodMetrics{
+				"default/pod-x": {Name: "pod-x", CPU: 50, Memory: 100 * 1024 * 1024},
+			},
+			gen: 0,
+		})
+		assertCPUMemFirst(t, "enriched", result.(Model).middleItems[0].Columns)
+	})
+
+	// Path 3: carryOverMetricsColumns (watch tick replacing items).
+	t.Run("carryOverMetricsColumns", func(t *testing.T) {
+		m := baseModel()
+		m.middleItems = []model.Item{{
+			Name: "pod-x", Namespace: "default",
+			Columns: []model.KeyValue{
+				{Key: "CPU", Value: "n/a"},
+				{Key: "CPU/R", Value: "n/a"},
+				{Key: "CPU/L", Value: "n/a"},
+				{Key: "MEM", Value: "n/a"},
+				{Key: "MEM/R", Value: "n/a"},
+				{Key: "MEM/L", Value: "n/a"},
+				{Key: "Reason", Value: "PodInitializing"},
+				{Key: "QoS", Value: "BestEffort"},
+			},
+		}}
+		newItems := []model.Item{{
+			Name: "pod-x", Namespace: "default",
+			Columns: []model.KeyValue{
+				{Key: "Reason", Value: "PodInitializing"},
+				{Key: "QoS", Value: "BestEffort"},
+				{Key: "CPU Req", Value: "100m"},
+			},
+		}}
+		m.carryOverMetricsColumns(newItems)
+		assertCPUMemFirst(t, "carryOver", newItems[0].Columns)
+	})
+}
+
 // --- nodeMetricsEnrichedMsg ---
 
 func TestUpdateNodeMetricsEnrichedStaleGen(t *testing.T) {

@@ -339,6 +339,12 @@ func (m Model) updatePodMetricsEnriched(msg podMetricsEnrichedMsg) Model {
 // supplied by an earlier tick. Raw "CPU Req"/"CPU Lim"/"Mem Req"/"Mem Lim"
 // values are preserved so the next successful tick can recompute the
 // percentage columns.
+//
+// Column order MUST match updatePodMetricsEnriched and
+// carryOverMetricsColumns (CPU/MEM first, everything else after) — otherwise
+// every watch tick on PodInitializing/CrashLoopBackOff pods (where metrics-
+// server has no data) flips Reason/QoS/etc. between two positions, producing
+// a visible ~1Hz layout blink.
 func clearStalePodMetricsColumns(item *model.Item) {
 	removeCols := map[string]bool{
 		"CPU":     true,
@@ -347,21 +353,20 @@ func clearStalePodMetricsColumns(item *model.Item) {
 		"Mem Use": true,
 		"CPU/R":   true, "CPU/L": true, "MEM/R": true, "MEM/L": true,
 	}
-	filtered := item.Columns[:0]
+	newCols := []model.KeyValue{
+		{Key: "CPU", Value: "n/a"},
+		{Key: "CPU/R", Value: "n/a"},
+		{Key: "CPU/L", Value: "n/a"},
+		{Key: "MEM", Value: "n/a"},
+		{Key: "MEM/R", Value: "n/a"},
+		{Key: "MEM/L", Value: "n/a"},
+	}
 	for _, kv := range item.Columns {
 		if !removeCols[kv.Key] {
-			filtered = append(filtered, kv)
+			newCols = append(newCols, kv)
 		}
 	}
-	filtered = append(filtered,
-		model.KeyValue{Key: "CPU", Value: "n/a"},
-		model.KeyValue{Key: "CPU/R", Value: "n/a"},
-		model.KeyValue{Key: "CPU/L", Value: "n/a"},
-		model.KeyValue{Key: "MEM", Value: "n/a"},
-		model.KeyValue{Key: "MEM/R", Value: "n/a"},
-		model.KeyValue{Key: "MEM/L", Value: "n/a"},
-	)
-	item.Columns = filtered
+	item.Columns = newCols
 }
 
 // ensureNodeMetricsColumnsPlaceholder adds CPU/CPU%/MEM/MEM% columns to a node
