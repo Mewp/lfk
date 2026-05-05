@@ -283,6 +283,9 @@ func (m Model) updateActionResultMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case podStartupMsg:
 		mdl, cmd := m.updatePodStartup(msg)
 		return mdl, cmd, true
+	case crashInvestigationMsg:
+		mdl, cmd := m.updateCrashInvestigation(msg)
+		return mdl, cmd, true
 	case quotaLoadedMsg:
 		mdl, cmd := m.updateQuotaLoaded(msg)
 		return mdl, cmd, true

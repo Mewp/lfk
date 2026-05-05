@@ -72,6 +72,11 @@ type Client struct {
 	// answers keyed by display name.
 	testHostByDisplay map[string]string
 
+	// describeOverride, when set, replaces the kubectl-describe call inside
+	// GetCrashInvestigation so tests don't need a real kubectl on PATH.
+	// Nil in production — the real path goes through DescribePod.
+	describeOverride func(ctx context.Context, contextName, namespace, podName string) (string, error)
+
 	// secretLazyLoading, when true, routes Secret listing through the
 	// metadata-only API so decoded values are lazy-fetched on hover instead
 	// of being pulled up-front. Configured via the secret_lazy_loading

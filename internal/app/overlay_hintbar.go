@@ -61,6 +61,17 @@ func (m Model) overlayHintBarDialog() string {
 			{Key: "Enter", Desc: "apply"},
 			{Key: "esc", Desc: "cancel"},
 		})
+	case overlayCrashInvestigator:
+		return m.renderHints([]ui.HintEntry{
+			{Key: "Tab", Desc: "switch tab"},
+			{Key: "1-4", Desc: "jump"},
+			{Key: "c", Desc: "container"},
+			{Key: "p", Desc: "prev/curr"},
+			{Key: "j/k", Desc: "scroll"},
+			{Key: "C-f/C-b", Desc: "page"},
+			{Key: "R", Desc: "refresh"},
+			{Key: "esc", Desc: "close"},
+		})
 	case overlayRBAC, overlayPodStartup:
 		return m.renderHints([]ui.HintEntry{
 			{Key: "any key", Desc: "close"},

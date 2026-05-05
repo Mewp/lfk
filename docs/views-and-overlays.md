@@ -139,6 +139,7 @@ category, and every entry maps to a constant in `app_types.go`.
 | `overlayHelmHistory`     | action menu → `h` on Helm       | Browse Helm release history.                                   |
 | `overlayRBAC`            | `U`                             | RBAC subject / role browser.                                   |
 | `overlayPodStartup`      | action menu → `S` on Pod        | Pod init / readiness gantt.                                    |
+| `overlayCrashInvestigator` | action menu → `I` on Pod      | Per-pod tabbed CrashLoopBackOff investigator: aggregated container restart history, pod-scoped events, container logs (previous + current), and per-container describe. Refreshable with `Shift+R`. |
 | `overlayQuotaDashboard`  | `Q`, `:quota`                   | Per-namespace ResourceQuota usage.                              |
 | `overlayEventTimeline`   | `V`                             | Cluster-wide events grouped by object.                          |
 | `overlayAlerts`          | from monitoring view            | Active Prometheus alerts.                                       |

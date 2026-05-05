@@ -397,6 +397,12 @@ type podStartupMsg struct {
 	err  error
 }
 
+// crashInvestigationMsg carries the result of a CrashLoopBackOff investigation.
+type crashInvestigationMsg struct {
+	info *k8s.CrashInvestigation
+	err  error
+}
+
 // alertsLoadedMsg carries the result of loading Prometheus alerts for a resource.
 type alertsLoadedMsg struct {
 	alerts []k8s.AlertInfo
