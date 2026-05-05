@@ -109,13 +109,22 @@ checksum:
 
 # Keyless cosign signing via Sigstore + GitHub OIDC.
 # Requires `id-token: write` permission and `sigstore/cosign-installer` in CI.
+#
+# Output is a single Sigstore bundle (cert + signature + transparency-log
+# entry combined). The previous --output-certificate / --output-signature
+# pair was deprecated in cosign v2.5 and broken in v2.6 (the sign-blob
+# code path always emits a bundle internally; without --bundle the path
+# is empty and the open() call fails). Verify with:
+#   cosign verify-blob \
+#     --bundle checksums.txt.cosign.bundle \
+#     --certificate-identity-regexp 'https://github\.com/janosmiko/lfk/.*' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
 signs:
   - cmd: cosign
-    certificate: "${artifact}.pem"
     args:
       - sign-blob
-      - "--output-certificate=${certificate}"
-      - "--output-signature=${signature}"
+      - "--bundle=${artifact}.cosign.bundle"
       - "${artifact}"
       - "--yes"
     artifacts: checksum
