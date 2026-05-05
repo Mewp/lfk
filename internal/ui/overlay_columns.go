@@ -48,9 +48,19 @@ func RenderColumnToggleOverlay(entries []ColumnToggleEntry, cursor int, filter s
 
 	innerW := max(width-6, 20)
 
-	// Reserve rows for title (1) + filter (1) + blank separator (1) +
-	// overlay border/padding (~3) so the visible-item count is honest.
-	maxVisible := max(height-6, 1)
+	// Reserve rows the rendered overlay needs that the caller's `height`
+	// must absorb:
+	//   chrome: title (1 + 1 bottom padding) + filter (1) + blank
+	//           separator (1) + scroll-above (1) + scroll-below (1) = 6
+	//   lipgloss vertical padding from OverlayStyle.Padding(1,2):     2
+	// so the item budget is `height - 8`.
+	//
+	// Reserving only 6 (the obvious chrome) is wrong: lipgloss
+	// `Height(h)` measures the content area inclusive of padding, so
+	// padding eats 2 rows out of `height` — content >`height-2` makes
+	// lipgloss grow the box on overflow, and as the filter narrows the
+	// list the box visibly shrinks back to its nominal size.
+	maxVisible := max(height-8, 1)
 	scrollOff := ConfigScrollOff
 	if maxVisible < 8 {
 		scrollOff = 0

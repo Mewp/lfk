@@ -155,7 +155,16 @@ type NetpolPeerEntry struct {
 const bookmarkModeFilter = 1
 
 // RenderNamespaceOverlay renders the namespace selection overlay content.
-func RenderNamespaceOverlay(items []model.Item, filter string, cursor int, currentNs string, allNs bool, selectedNamespaces map[string]bool, filterMode bool) string {
+//
+// The height parameter is the overlay box height the caller will pass to
+// OverlayStyle.Height(). The renderer caps its visible-item count to fit
+// inside that budget so lipgloss never has to grow the box on overflow \u2014
+// without this, a list of 30+ namespaces overflows a 20-tall box (the
+// renderer used to emit ~21 lines), and as the user typed into the
+// filter the box visibly "shrank" back to its declared size when fewer
+// items fit. Mirrors the layout contract enforced for the column toggle
+// overlay.
+func RenderNamespaceOverlay(items []model.Item, filter string, cursor int, currentNs string, allNs bool, selectedNamespaces map[string]bool, filterMode bool, height int) string {
 	var b strings.Builder
 	b.WriteString(OverlayTitleStyle.Render("Select Namespace"))
 	b.WriteString("\n")
@@ -180,7 +189,21 @@ func RenderNamespaceOverlay(items []model.Item, filter string, cursor int, curre
 		return b.String()
 	}
 
-	maxVisible := min(15, len(items))
+	// Reserve rows the rendered overlay needs that the caller's `height`
+	// must absorb:
+	//   chrome: title (1 + 1 bottom padding) + filter (1) + blank
+	//           separator (1) + scroll-above (1) + scroll-below (1) = 6
+	//   lipgloss vertical padding from OverlayStyle.Padding(1,2):     2
+	// so the item budget is `height - 8`.
+	//
+	// Reserving only 6 (the obvious chrome) is wrong: lipgloss
+	// `Height(h)` measures the *content area including padding*, so
+	// padding eats 2 rows out of `height` — content over `height-2`
+	// makes lipgloss grow the box on overflow, and as the filter
+	// narrows the list the box visibly "shrinks" back to its nominal
+	// size (the 21→20→…→22 cascade the user reported, observed right
+	// as the "↓ N below" indicator turns into its placeholder row).
+	maxVisible := min(max(height-8, 1), len(items))
 	scrollOff := ConfigScrollOff
 	// Disable or reduce scrolloff when all items fit the visible area.
 	if len(items) <= maxVisible {
