@@ -316,6 +316,49 @@ skipped — they have no backing EndpointSlices to roll up.
 For a fuller `kubectl describe`-style view of a Service (events,
 session affinity, etc.), press `v` (Describe).
 
+## Orphan detection
+
+`lfk` flags Kubernetes resources that have no live consumer or controller, across 11 kinds:
+
+- **Pods without owners** — typically debug / one-off pods that escaped a controller. Static pods (kubelet-managed) are excluded; terminal pods older than an hour are tagged separately.
+- **Secrets / ConfigMaps not mounted** — anything not referenced by a Pod (volumes, env, envFrom, imagePullSecrets), an Ingress (`spec.tls.secretName`), or a ServiceAccount.
+- **Services with no endpoints** — non-Headless, non-ExternalName Services with zero backing addresses.
+- **PersistentVolumeClaims not mounted** — bound but no Pod or workload template references them.
+- **HorizontalPodAutoscalers with a missing target** — `scaleTargetRef` doesn't resolve.
+- **PodDisruptionBudgets / NetworkPolicies that match nothing** — selector resolves to zero live or templated pods.
+- **Roles / ClusterRoles with no binding** — no RoleBinding or ClusterRoleBinding refers to them.
+- **RoleBindings / ClusterRoleBindings with a missing role or empty subjects.**
+
+### Cluster-wide overview
+
+Press **`Shift+O`** anywhere in the explorer (or type `:orphans` in the command bar) to open the orphan overview overlay. It scans the cluster and lists every orphan in one table grouped by kind:
+
+- `Tab` / `Shift+Tab` cycle through every kind filter chip (All plus all supported orphan kinds rendered in the strip)
+- `s` toggles strict / lenient — strict (default) hides items referenced by workload templates (e.g. CronJob between firings, scaled-to-zero Deployment); lenient surfaces them
+- `/` filters by namespace + name
+- `Enter` jumps straight to the highlighted resource (the namespace switches automatically)
+- `R` re-scans the cluster
+- `Esc`, `q`, or `Shift+O` close the overlay
+
+Partial-RBAC denials surface as a warning banner at the top of the overlay; whatever could be listed is still shown.
+
+### Per-kind filter presets
+
+Inside a list for any supported kind, press **`.`** to open the filter-preset overlay and pick the orphan preset. `:orphans <kind>` (e.g. `:orphans secrets`, `:orphans pvcs`, `:orphans rolebindings`) jumps to the kind's list with the preset already applied.
+
+### Auto-exclusions
+
+To avoid false positives, the detector excludes these system-managed resources:
+
+| Resource    | Excluded When                                                  |
+| ----------- | -------------------------------------------------------------- |
+| Pod         | Static pod (`kubernetes.io/config.mirror` annotation)          |
+| Secret      | `type=helm.sh/release.v1` (Helm release storage)               |
+| Secret      | `type=kubernetes.io/service-account-token` (auto-generated)    |
+| Secret/CM   | Has any `ownerReference` (managed by another controller)       |
+| ConfigMap   | Named `kube-root-ca.crt` (auto-injected per namespace)         |
+| Service     | Headless (`clusterIP=None`) or `type=ExternalName`             |
+
 ## Secret Lazy Loading
 
 On clusters with many Helm releases or large TLS secrets, listing the

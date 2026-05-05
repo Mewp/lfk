@@ -54,6 +54,8 @@ func (m Model) isOverlayToggleKey(key string) bool {
 		return key == kb.QuotaDashboard
 	case overlayClusterColor:
 		return key == kb.ClusterColorPicker
+	case overlayOrphans:
+		return key == kb.OrphanOverlay
 	}
 	return false
 }
@@ -152,6 +154,9 @@ func (m Model) handleOverlayKeySecondary(msg tea.KeyMsg) (tea.Model, tea.Cmd, bo
 		return mdl, cmd, true
 	case overlayNetworkPolicy:
 		return m.handleNetworkPolicyOverlayKey(msg), nil, true
+	case overlayOrphans:
+		mdl, cmd := m.handleOrphansKey(msg)
+		return mdl, cmd, true
 	case overlayCanI:
 		mdl, cmd := m.handleCanIKey(msg)
 		return mdl, cmd, true

@@ -20,7 +20,7 @@ Complete list of all keybindings in `lfk`. All keybindings can be overridden in 
 | `H` | Toggle rarely used resource types (CSI internals, webhooks, APF, leases, advanced core) in the sidebar (resets each launch) |
 | `0` / `1` / `2` | Jump to clusters / types / resources level |
 | `J` / `K` | Scroll preview pane down/up |
-| `o` | Jump to owner/controller of selected resource |
+| `o` / `O` | `o` jumps to the owner/controller of the selected resource; `O` opens the cluster-wide orphan overview overlay |
 
 ## Views and Tools
 
@@ -36,6 +36,7 @@ Complete list of all keybindings in `lfk`. All keybindings can be overridden in 
 | `Ctrl+S` | Toggle secret value visibility in details pane (YAML preview always shows actual base64 values) |
 | `I` | API Explorer (browse resource structure interactively) |
 | `U` | RBAC permissions browser (can-i) |
+| `Shift+O` | Open the cluster-wide Orphan overview |
 | `Ctrl+G` | Finalizer search and remove |
 | `!` | Error log |
 | `@` | Monitoring overview (active Prometheus alerts) |
@@ -59,6 +60,52 @@ Complete list of all keybindings in `lfk`. All keybindings can be overridden in 
 | `Ctrl+R` | Toggle read-only mode (cluster picker: highlighted row's [RO] marker; inside a context: current tab) |
 | `T` | Switch color scheme (live preview, not persisted) |
 | `Ctrl+T` | Cycle terminal mode (pty / exec / mux — mux skipped without tmux/zellij) |
+
+## Orphan filter presets
+
+### Cluster-wide overview
+
+Press **`Shift+O`** anywhere in the explorer (or type `:orphans` with no arguments in the command bar) to open the cluster-wide orphan overview overlay. Inside the overlay:
+
+| Key | Action |
+| --- | ------ |
+| `Tab` / `Shift+Tab` | Cycle kind filter chips (All / Pods / Secrets / CMs / Svcs / PVCs / HPAs / PDBs / NetPols / Roles / RBs) |
+| `s` | Toggle strict / lenient — strict (default) hides items referenced by workload templates; lenient surfaces them |
+| `/` | Filter by namespace + name |
+| `Enter` | Jump to the highlighted resource (namespace switches automatically) |
+| `R` | Re-scan the cluster |
+| `Esc` / `q` / `Shift+O` | Close the overlay |
+
+### Per-kind presets
+
+The `.` filter-preset overlay surfaces these orphan-detection presets when the active resource list is one of the supported kinds. Every orphan preset binds to the same hotkey **`O`** so there is one mnemonic to remember; the per-kind preset name still distinguishes the underlying check.
+
+| Resource list | Preset name | Match |
+| --- | --- | --- |
+| Pods | Orphans | No owner reference (excludes static / mirror pods) |
+| Secrets | Unmounted | No Pod / template / Ingress / SA refers to it |
+| ConfigMaps | Unmounted | No Pod or workload template refers to it |
+| Services | No Endpoints | Zero ready+notReady endpoints |
+| PersistentVolumeClaims | Unused | Not mounted by any Pod or template |
+| HorizontalPodAutoscalers | Dangling | `scaleTargetRef` points to a missing workload |
+| PodDisruptionBudgets | Dangling | Selector matches no live / templated pods |
+| NetworkPolicies | Dangling | `podSelector` matches no live / templated pods |
+| Roles | Unbound | No RoleBinding refers to it (ClusterRoleBinding can't reference a Role) |
+| ClusterRoles | Unbound | No RoleBinding / ClusterRoleBinding refers to it |
+| RoleBindings / ClusterRoleBindings | Dangling | Missing role or empty subjects |
+
+`:orphans <kind>` (e.g. `:orphans pods`, `:orphans pvcs`, `:orphans rolebindings`) is a shortcut that jumps to the kind's list with the matching preset already applied.
+
+Auto-excluded from "Unmounted" results:
+- Helm release Secrets (`type=helm.sh/release.v1`)
+- ServiceAccount tokens (`type=kubernetes.io/service-account-token`)
+- `kube-root-ca.crt` ConfigMap
+- Anything with an `ownerReference` (cert-manager Certificates, etc.)
+
+Auto-excluded from Pod "Orphans":
+- Static / mirror pods (kubelet-managed via `kubernetes.io/config.mirror` annotation)
+
+Note: terminal pods (Succeeded/Failed) older than 1h are still flagged but the reason is `"no owner (terminal)"` to distinguish them from live workloads.
 
 ## Search and Filter
 
