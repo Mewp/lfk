@@ -67,8 +67,16 @@ func (m Model) renderOverlay(background string) string {
 func (m Model) renderOverlayContent() (string, int, int, bool) {
 	switch m.overlay {
 	case overlayNamespace:
-		content := ui.RenderNamespaceOverlay(m.filteredOverlayItems(), m.overlayFilter.Value, m.overlayCursor, m.namespace, m.allNamespaces, m.selectedNamespaces, m.nsFilterMode)
-		return content, min(60, m.width-10), min(20, m.height-6), true
+		// Pass the same height to the renderer that we declare on the
+		// overlay box, so the renderer's visible-item cap matches what
+		// fits. Otherwise on a list of 30+ namespaces the renderer
+		// emits ~21 lines into a 20-tall box; lipgloss grows the box
+		// on overflow, and the user sees it "shrink" back to 20 the
+		// moment a filter narrows the list.
+		overlayW := min(60, m.width-10)
+		overlayH := min(20, m.height-6)
+		content := ui.RenderNamespaceOverlay(m.filteredOverlayItems(), m.overlayFilter.Value, m.overlayCursor, m.namespace, m.allNamespaces, m.selectedNamespaces, m.nsFilterMode, overlayH)
+		return content, overlayW, overlayH, true
 	case overlayAction:
 		w := min(70, m.width-10)
 		return ui.RenderActionOverlay(m.overlayItems, m.overlayCursor, w), w, min(15, m.height-6), true
