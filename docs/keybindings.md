@@ -748,7 +748,7 @@ Press `:` to open the command bar. It supports four types of input:
 The action menu (`x` key) shows context-specific actions based on the resource type:
 
 ### Pod Actions
-`l` Tail Logs (last N lines + follow), `L` Logs (full), `s` Exec, `A` Attach, `B` Debug, `b` Debug Pod, `p` Port Forward, `S` Startup Analysis, `v` Describe, `E` Edit, `D` Delete, `X` Force Delete, `V` Events
+`l` Tail Logs (last N lines + follow), `L` Logs (full), `s` Exec, `A` Attach, `B` Debug, `b` Debug Pod, `p` Port Forward, `S` Startup Analysis, `I` Crash Investigator, `v` Describe, `E` Edit, `D` Delete, `X` Force Delete, `V` Events
 
 ### Deployment Actions
 `l` Tail Logs (last N lines + follow), `L` Logs (full), `s` Exec, `A` Attach, `S` Scale, `r` Restart, `R` Rollback, `p` Port Forward, `v` Describe, `E` Edit, `D` Delete, `b` Debug Pod, `V` Events
@@ -889,3 +889,21 @@ keybindings:
   # Cluster color picker (cluster picker only)
   cluster_color_picker: "L"
 ```
+
+### Crash Investigator overlay
+
+Opened from the Pod action menu (`x` → `I`). Combines events, restart history,
+last logs, and describe for the failing container in one tabbed panel.
+
+| Key            | Action                                                   |
+| -------------- | -------------------------------------------------------- |
+| `Tab` / `S-Tab`| Cycle tabs forward / backward                            |
+| `1` / `2` / `3` / `4` | Jump to Summary / Events / Logs / Describe        |
+| `c`            | Cycle active container (init + app)                       |
+| `p`            | Toggle previous / current logs (Logs tab only)            |
+| `j` / `k`      | Scroll within tab body                                    |
+| `g` / `G`      | Jump to top / bottom of tab body                          |
+| `Ctrl+D` / `Ctrl+U` | Half-page down / up                                  |
+| `Ctrl+F` / `Ctrl+B` | Full-page down / up (also `PgDn` / `PgUp`)           |
+| `Shift+R`      | Refresh — re-fetch all sections, preserves cursor state  |
+| `Esc` / `q`    | Close overlay                                             |

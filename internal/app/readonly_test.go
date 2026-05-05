@@ -46,7 +46,7 @@ func TestIsMutatingAction(t *testing.T) {
 	readOnly := []string{
 		"Logs", "Tail Logs", "Describe", "Events",
 		"Resize", "Go to Pod", "Open in Browser",
-		"Startup Analysis", "Alerts", "Visualize", "Vuln Scan",
+		"Startup Analysis", "Crash Investigator", "Alerts", "Visualize", "Vuln Scan",
 		"", "unknown action", "Diff",
 		// Watch is observation-only, not a mutation.
 		"Watch Workflow",

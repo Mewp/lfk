@@ -130,6 +130,9 @@ func (m Model) handleOverlayKeyPrimary(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool
 // (viewers, monitoring, info panels).
 func (m Model) handleOverlayKeySecondary(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch m.overlay {
+	case overlayCrashInvestigator:
+		mdl, cmd := m.handleCrashInvestigatorOverlayKey(msg)
+		return mdl, cmd, true
 	case overlayRBAC, overlayPodStartup:
 		m.overlay = overlayNone
 		return m, nil, true

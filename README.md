@@ -93,6 +93,7 @@
 - **Watch mode**: Auto-refresh resources every 2 seconds (enabled by default)
 - **Owner/controller navigation**: Jump to the owner of any resource with `o`
 - **Events view** with warnings-only filter toggle and duplicate-event grouping (`z`)
+- **Crash Investigator** — per-Pod tabbed view combining restart history, pod-scoped events, previous/current container logs, and container-scoped `describe` — accessible from the Pod action menu (`x` → `I`). Refresh with `Shift+R`.
 
 ### Preview and Editing
 

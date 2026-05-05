@@ -135,6 +135,9 @@ func (m Model) renderOverlayContent() (string, int, int, bool) {
 	case overlayPodStartup:
 		c, w, h := m.renderOverlayPodStartup()
 		return c, w, h, true
+	case overlayCrashInvestigator:
+		c, w, h := m.renderOverlayCrashInvestigator()
+		return c, w, h, true
 	case overlayQuotaDashboard:
 		c, w, h := m.renderOverlayQuotaDashboard()
 		return c, w, h, true

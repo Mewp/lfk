@@ -642,6 +642,9 @@ type Model struct {
 	// Pod startup analysis state.
 	podStartupData *k8s.PodStartupInfo
 
+	// Crash Investigator overlay state (per-pod multi-tab diagnostic view).
+	crashInv crashInvState
+
 	// Event timeline overlay state.
 	eventTimelineData         []k8s.EventInfo // event timeline data
 	eventTimelineLines        []string        // flat text lines for cursor navigation

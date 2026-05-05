@@ -132,6 +132,13 @@ func applyNoColorTheme() {
 		BorderStyle(lipgloss.RoundedBorder()).
 		Padding(0, 1)
 
+	// Crash investigator divider + section/header styles. Bold and
+	// underline survive no-color mode; foreground and background colors
+	// are stripped so emphasis remains via SGR attributes only.
+	crashTabSeparatorStyle = lipgloss.NewStyle()
+	crashSectionStyle = lipgloss.NewStyle().Bold(true).Underline(true)
+	crashHeaderStyle = lipgloss.NewStyle().Bold(true)
+
 	OverlayTitleStyle = lipgloss.NewStyle().Bold(true).Padding(0, 0, 1, 0)
 	OverlaySelectedStyle = lipgloss.NewStyle().
 		Bold(true).

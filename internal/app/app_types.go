@@ -72,6 +72,7 @@ const (
 	overlayPasteConfirm // y/n confirmation for multiline paste into search/filter
 	overlayBackgroundTasks
 	overlayClusterColor // pick a color tint for the highlighted cluster row
+	overlayCrashInvestigator
 )
 
 // whoCanState groups the reverse-RBAC ("Who-Can") fields so they live
@@ -94,6 +95,39 @@ type whoCanState struct {
 	subjects             []k8s.WhoCanSubject // last fetch result
 	subjectsScroll       int                 // scroll offset into subjects table
 	loading              bool                // fetch in flight
+}
+
+// crashInvTab identifies which tab is active in the CrashLoopBackOff
+// investigator overlay.
+type crashInvTab int
+
+const (
+	crashInvTabSummary crashInvTab = iota
+	crashInvTabEvents
+	crashInvTabLogs
+	crashInvTabDescribe
+)
+
+// crashInvScrollKey indexes per-tab, per-container scroll offsets so
+// switching tabs (or containers within Logs/Describe) preserves the
+// reader's position. Summary and Events are not container-scoped, so
+// they leave container blank.
+type crashInvScrollKey struct {
+	tab       crashInvTab
+	container string
+}
+
+// crashInvState groups the CrashLoopBackOff-investigator fields together
+// so they live as a single field on Model. Mirrors whoCanState. The
+// scroll map persists per-(tab, container) viewport offsets so switching
+// tabs or containers preserves the reader's position; the renderer is
+// responsible for clamping the offset when content shrinks.
+type crashInvState struct {
+	data            *k8s.CrashInvestigation
+	activeContainer string
+	activeTab       crashInvTab
+	showPrevious    bool
+	scroll          map[crashInvScrollKey]int
 }
 
 // canIViewMode toggles the Can-I overlay between its forward view

@@ -72,6 +72,7 @@ func actionsForCoreKind(kind string) ([]ActionMenuItem, bool) {
 			{Label: "Debug Pod", Description: "Run standalone alpine debug pod in namespace", Key: "b"},
 			{Label: "Port Forward", Description: "Forward local port to pod", Key: "p"},
 			{Label: "Startup Analysis", Description: "Analyze pod startup timing", Key: "S"},
+			{Label: "Crash Investigator", Description: "Investigate crash loop / failing pod", Key: "I"},
 			{Label: "Describe", Description: "Describe resource", Key: "v"},
 			{Label: "Edit", Description: "Edit resource YAML", Key: "E"},
 			{Label: "Delete", Description: "Delete this pod", Key: "D"},
