@@ -489,6 +489,8 @@ func (m Model) executeActionCoreOps(actionLabel string) (tea.Model, tea.Cmd, boo
 	case "Crash Investigator":
 		mdl, cmd := m.executeActionCrashInvestigator()
 		return mdl, cmd, true
+	case "Sync Wave Timeline":
+		return m.dispatchActionSyncWaveTimeline()
 	case "Alerts":
 		mdl, cmd := m.executeActionAlerts()
 		return mdl, cmd, true
