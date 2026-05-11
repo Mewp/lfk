@@ -12,7 +12,7 @@ import (
 func TestClearBeforeExec(t *testing.T) {
 	t.Run("wraps simple command", func(t *testing.T) {
 		original := exec.Command("kubectl", "get", "pods")
-		wrapped := clearBeforeExec(original)
+		wrapped := clearBeforeExecForOS(original, "linux")
 
 		assert.Equal(t, "sh", wrapped.Path[len(wrapped.Path)-2:])
 		assert.Equal(t, "sh", wrapped.Args[0])
@@ -27,7 +27,7 @@ func TestClearBeforeExec(t *testing.T) {
 		original := exec.Command("kubectl", "get", "pods")
 		original.Env = []string{"KUBECONFIG=/tmp/config"}
 		original.Dir = "/some/dir"
-		wrapped := clearBeforeExec(original)
+		wrapped := clearBeforeExecForOS(original, "linux")
 
 		assert.Equal(t, []string{"KUBECONFIG=/tmp/config"}, wrapped.Env)
 		assert.Equal(t, "/some/dir", wrapped.Dir)
@@ -35,17 +35,45 @@ func TestClearBeforeExec(t *testing.T) {
 
 	t.Run("quotes args with special chars", func(t *testing.T) {
 		original := exec.Command("kubectl", "get", "pods", "-l", "app=my app")
-		wrapped := clearBeforeExec(original)
+		wrapped := clearBeforeExecForOS(original, "linux")
 
 		assert.Contains(t, wrapped.Args[2], "'app=my app'")
 	})
 
 	t.Run("handles args with single quotes", func(t *testing.T) {
 		original := exec.Command("echo", "it's")
-		wrapped := clearBeforeExec(original)
+		wrapped := clearBeforeExecForOS(original, "linux")
 
 		// shellQuote replaces ' with '"'"'
 		assert.Contains(t, wrapped.Args[2], `'it'"'"'s'`)
+	})
+}
+
+// On Windows, sh.exe is not on a standard PATH, so wrapping a kubectl
+// command in `sh -c "printf '\033c' && exec kubectl …"` makes the parent
+// process exit immediately — that's what bug #194 surfaced as
+// "exit status 2" with the terminal flashing and closing. Returning the
+// original cmd unchanged on Windows lets tea.ExecProcess hand kubectl
+// the host terminal directly, losing only the cosmetic clear-screen.
+func TestClearBeforeExecForOS(t *testing.T) {
+	t.Run("linux wraps with sh -c", func(t *testing.T) {
+		cmd := exec.Command("kubectl", "exec", "-it", "pod")
+		wrapped := clearBeforeExecForOS(cmd, "linux")
+		assert.Equal(t, "sh", wrapped.Args[0])
+		assert.Equal(t, "-c", wrapped.Args[1])
+		assert.Contains(t, wrapped.Args[2], `printf '\033c'`)
+	})
+
+	t.Run("darwin wraps with sh -c", func(t *testing.T) {
+		cmd := exec.Command("kubectl", "exec", "-it", "pod")
+		wrapped := clearBeforeExecForOS(cmd, "darwin")
+		assert.Equal(t, "sh", wrapped.Args[0])
+	})
+
+	t.Run("windows returns cmd unchanged because sh is not reliably available", func(t *testing.T) {
+		cmd := exec.Command("kubectl", "exec", "-it", "pod")
+		wrapped := clearBeforeExecForOS(cmd, "windows")
+		assert.Same(t, cmd, wrapped, "windows path must not wrap — sh -c would fail before kubectl ever starts")
 	})
 }
 

@@ -4,6 +4,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -103,16 +104,17 @@ func applyConfigOptions(cfg configFile) {
 		ConfigDashboard = *cfg.Dashboard
 	}
 	if cfg.Terminal != "" {
-		mode := strings.ToLower(cfg.Terminal)
-		switch mode {
-		case TerminalModePTY, TerminalModeExec, TerminalModeMux:
-			ConfigTerminalMode = mode
-		default:
-			logger.Warn("unrecognised terminal mode in config; falling back to default",
-				"value", cfg.Terminal,
+		mode, warning := resolveTerminalMode(cfg.Terminal, runtime.GOOS, ConfigTerminalMode)
+		if warning != "" {
+			// Raw cfg.Terminal is intentionally not logged — log
+			// redaction policy. The "valid" list tells the user what
+			// is accepted; their own config file is the source of
+			// truth for what they typed.
+			logger.Warn(warning,
 				"valid", []string{TerminalModePTY, TerminalModeExec, TerminalModeMux},
-				"default", ConfigTerminalMode)
+				"applied", mode)
 		}
+		ConfigTerminalMode = mode
 	}
 	if cfg.ScrollbackLines != 0 {
 		v := cfg.ScrollbackLines

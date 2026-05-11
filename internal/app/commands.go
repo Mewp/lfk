@@ -104,22 +104,18 @@ func scheduleDescribeRefresh() tea.Cmd {
 	})
 }
 
-// openInBrowser opens the given URL in the user's default browser using
-// platform-specific commands (open on macOS, xdg-open on Linux, start on Windows).
+// openInBrowser opens the given URL in the user's default browser.
+//
+// Delegates to ui.OpenBrowser, which routes Windows through
+// `rundll32 url.dll,FileProtocolHandler` instead of `cmd /c start`.
+// The earlier `cmd /c start` path here re-parsed the URL through
+// cmd.exe metacharacter semantics, so a single `&` in a query
+// string (e.g. `?a=1&b=2`) would split the URL and execute the
+// remainder as a shell command — both a correctness and a security
+// issue for URLs derived from cluster data.
 func openInBrowser(url string) tea.Cmd {
 	return func() tea.Msg {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "darwin":
-			cmd = exec.Command("open", url)
-		case "linux":
-			cmd = exec.Command("xdg-open", url)
-		case "windows":
-			cmd = exec.Command("cmd", "/c", "start", url)
-		default:
-			return actionResultMsg{err: fmt.Errorf("browser open not supported on %s", runtime.GOOS)}
-		}
-		if err := cmd.Start(); err != nil {
+		if err := ui.OpenBrowser(url); err != nil {
 			return actionResultMsg{err: fmt.Errorf("failed to open browser: %w", err)}
 		}
 		return actionResultMsg{message: "Opened " + url}
@@ -259,6 +255,19 @@ func (m Model) loadContainersForLogFilter() tea.Cmd {
 // clearBeforeExec wraps cmd to clear the terminal screen before running it.
 // This ensures the TUI artifacts are removed when switching to interactive mode.
 func clearBeforeExec(cmd *exec.Cmd) *exec.Cmd {
+	return clearBeforeExecForOS(cmd, runtime.GOOS)
+}
+
+// clearBeforeExecForOS is the testable inner form. On Windows the sh -c
+// wrap is skipped because sh.exe is not on a standard PATH there —
+// wrapping kubectl in `sh -c "printf '\033c' && exec kubectl …"` would
+// make the parent process fail to start (issue #194: "exit status 2",
+// terminal flashes and closes). The cost is one cosmetic clear-screen
+// on the way into an interactive shell on Windows.
+func clearBeforeExecForOS(cmd *exec.Cmd, goos string) *exec.Cmd {
+	if goos == "windows" {
+		return cmd
+	}
 	// Build a shell command: clear screen with ANSI reset, then exec the original command.
 	quoted := make([]string, 0, len(cmd.Args))
 	for _, arg := range cmd.Args {

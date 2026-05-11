@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -293,8 +294,63 @@ const (
 )
 
 // ConfigTerminalMode controls how exec/shell commands run. One of
-// TerminalModePTY, TerminalModeExec, TerminalModeMux.
-var ConfigTerminalMode = TerminalModePTY
+// TerminalModePTY, TerminalModeExec, TerminalModeMux. Initialised from
+// defaultTerminalMode() so Windows users — where the embedded PTY
+// driver (github.com/creack/pty) has no working backend — start in
+// Exec mode by default and don't hit "failed to start PTY: unsupported"
+// the first time they trigger an interactive shell (issue #194).
+var ConfigTerminalMode = defaultTerminalMode()
+
+// defaultTerminalMode returns the package-level default for
+// ConfigTerminalMode based on the current runtime OS.
+func defaultTerminalMode() string {
+	return defaultTerminalModeForOS(runtime.GOOS)
+}
+
+// defaultTerminalModeForOS is the testable inner form. Windows must
+// default to Exec because creack/pty's Windows StartWithSize returns
+// ErrUnsupported; every other platform gets the richer embedded PTY.
+func defaultTerminalModeForOS(goos string) string {
+	if goos == "windows" {
+		return TerminalModeExec
+	}
+	return TerminalModePTY
+}
+
+// resolveTerminalMode validates the `terminal:` config value against the
+// runtime OS. It returns (effectiveMode, warning):
+//   - effectiveMode is always a valid mode the caller can assign to
+//     ConfigTerminalMode. When the input is empty or unrecognised the
+//     caller's currentMode is returned unchanged.
+//   - warning is non-empty when a fallback was applied; the caller is
+//     expected to log it at Warn level so the user sees why their
+//     configured value didn't stick.
+//
+// `pty` on Windows is silently downgraded to `exec` because the embedded
+// PTY backend (github.com/creack/pty) has no working Windows
+// implementation — accepting the option would just trap users in a
+// state where every interactive action fails (issue #194).
+func resolveTerminalMode(configValue, goos, currentMode string) (mode string, warning string) {
+	normalized := strings.ToLower(strings.TrimSpace(configValue))
+	if normalized == "" {
+		return currentMode, ""
+	}
+	switch normalized {
+	case TerminalModePTY:
+		if goos == "windows" {
+			return TerminalModeExec, "terminal: pty is not supported on Windows (no PTY backend); using exec"
+		}
+		return TerminalModePTY, ""
+	case TerminalModeExec, TerminalModeMux:
+		return normalized, ""
+	default:
+		// The raw configValue is intentionally NOT embedded in the
+		// warning — log redaction policy. Users can check their config
+		// file to see what they typed; the "valid" list logged by the
+		// caller tells them what is accepted.
+		return currentMode, "unrecognised terminal mode; using " + currentMode
+	}
+}
 
 // ScrollbackLines clamps for the embedded PTY scrollback ring. The
 // default of 5000 covers an extended interactive session without
